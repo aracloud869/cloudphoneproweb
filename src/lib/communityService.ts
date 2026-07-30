@@ -320,3 +320,43 @@ export async function updateBanAppealStatus(appealId: string, status: 'reviewed'
   const docRef = userDoc(userDb, 'ban_appeals', appealId);
   return await userUpdateDoc(docRef, { status });
 }
+
+// 7. Update author profile in all previously posted scripts & comments
+export async function updateAuthorProfileInScripts(authorUid: string, newName: string, newAvatar: string) {
+  if (!authorUid) return;
+
+  try {
+    // Update community scripts
+    const scriptsCol = userCol(userDb, 'community_scripts');
+    const scriptsQuery = userQuery(scriptsCol, userWhere('authorUid', '==', authorUid));
+    const scriptsSnap = await userGetDocs(scriptsQuery);
+
+    const scriptPromises: Promise<void>[] = [];
+    scriptsSnap.forEach((docSnap) => {
+      const ref = userDoc(userDb, 'community_scripts', docSnap.id);
+      scriptPromises.push(userUpdateDoc(ref, {
+        authorName: newName,
+        authorAvatar: newAvatar
+      }));
+    });
+
+    // Update comments
+    const commentsCol = userCol(userDb, 'script_comments');
+    const commentsQuery = userQuery(commentsCol, userWhere('authorUid', '==', authorUid));
+    const commentsSnap = await userGetDocs(commentsQuery);
+
+    const commentPromises: Promise<void>[] = [];
+    commentsSnap.forEach((docSnap) => {
+      const ref = userDoc(userDb, 'script_comments', docSnap.id);
+      commentPromises.push(userUpdateDoc(ref, {
+        authorName: newName,
+        authorAvatar: newAvatar
+      }));
+    });
+
+    await Promise.all([...scriptPromises, ...commentPromises]);
+  } catch (err) {
+    console.warn("Failed to update author profile in scripts:", err);
+  }
+}
+

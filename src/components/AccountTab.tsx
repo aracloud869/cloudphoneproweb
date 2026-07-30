@@ -15,7 +15,8 @@ import {
 import { 
   saveUserProfile, 
   subscribeUserProfile, 
-  subscribeCommunityScripts 
+  subscribeCommunityScripts,
+  updateAuthorProfileInScripts
 } from '../lib/communityService';
 import { 
   User as UserIcon, 
@@ -126,26 +127,6 @@ export function AccountTab({ currentUser, userProfile, onNavigateToScripts }: Ac
     }
   };
 
-  const handleAvatarUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    setAvatarError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check size max 5MB (5 * 1024 * 1024 bytes)
-    if (file.size > 5 * 1024 * 1024) {
-      setAvatarError('Kích thước ảnh đại diện quá lớn! Tối đa 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setAvatarPreview(event.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleUpdateProfile = async (e: FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -155,20 +136,26 @@ export function AccountTab({ currentUser, userProfile, onNavigateToScripts }: Ac
 
     try {
       const cleanName = editName.trim() || currentUser.displayName || 'Thành viên';
+      const cleanAvatar = avatarPreview.trim() || currentUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.uid}`;
+
       await updateProfile(currentUser, {
         displayName: cleanName,
-        photoURL: avatarPreview || currentUser.photoURL || ''
+        photoURL: cleanAvatar
       });
 
       const updatedProf: UserProfile = {
         uid: currentUser.uid,
         email: currentUser.email || '',
         displayName: cleanName,
-        avatarUrl: avatarPreview || currentUser.photoURL || '',
+        avatarUrl: cleanAvatar,
         createdAt: userProfile?.createdAt || Date.now()
       };
       await saveUserProfile(updatedProf);
-      setSuccessMsg('Cập nhật thông tin cá nhân thành công!');
+
+      // Sync updated avatar & name to all scripts and comments previously posted by this user
+      await updateAuthorProfileInScripts(currentUser.uid, cleanName, cleanAvatar);
+
+      setSuccessMsg('Cập nhật thông tin và đồng bộ avatar cho tất cả Script đã đăng thành công!');
     } catch (err: any) {
       setErrorMsg('Không thể cập nhật hồ sơ: ' + err.message);
     } finally {
@@ -314,17 +301,11 @@ export function AccountTab({ currentUser, userProfile, onNavigateToScripts }: Ac
             <img
               src={avatarPreview || currentUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.uid}`}
               alt="Avatar"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.uid}`;
+              }}
               className="w-20 h-20 rounded-2xl object-cover border-2 border-cyan-500/50 shadow-xl shadow-cyan-500/20 bg-slate-950"
             />
-            <label className="absolute inset-0 bg-slate-950/70 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-              <Camera className="w-6 h-6 text-cyan-400" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarUpload}
-                className="hidden"
-              />
-            </label>
           </div>
 
           <div className="space-y-1">
@@ -424,20 +405,47 @@ export function AccountTab({ currentUser, userProfile, onNavigateToScripts }: Ac
 
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300 uppercase block">
-                Thay Đổi Ảnh Đại Diện (Tối đa 5MB)
+                Thay Đổi Ảnh Đại Diện (Nhập URL Đường Dẫn Ảnh)
               </label>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
                 <img
                   src={avatarPreview || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.uid}`}
-                  alt="Preview"
-                  className="w-14 h-14 rounded-xl object-cover bg-slate-950 border border-slate-800"
+                  alt="Avatar Preview"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.uid}`;
+                  }}
+                  className="w-16 h-16 rounded-2xl object-cover bg-slate-950 border-2 border-cyan-500/40 shadow-lg shadow-cyan-500/10 flex-shrink-0"
                 />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-cyan-500/20 file:text-cyan-300 hover:file:bg-cyan-500 hover:file:text-slate-950 cursor-pointer"
-                />
+                <div className="w-full space-y-2">
+                  <input
+                    type="url"
+                    value={avatarPreview}
+                    onChange={(e) => {
+                      setAvatarError(null);
+                      setAvatarPreview(e.target.value);
+                    }}
+                    placeholder="Dán URL ảnh (vd: https://i.imgur.com/example.png hoặc link bất kỳ)..."
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-xs focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[11px] text-slate-400 font-mono">Gợi ý tạo avatar:</span>
+                    {['bottts', 'adventurer', 'avataaars', 'pixel-art'].map((style) => (
+                      <button
+                        key={style}
+                        type="button"
+                        onClick={() => {
+                          setAvatarPreview(`https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(editName || currentUser.uid)}`);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-300 text-slate-300 text-[10px] font-mono cursor-pointer transition-all"
+                      >
+                        +{style}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-cyan-400/90 font-mono italic">
+                    * Khi lưu thay đổi, avatar mới sẽ tự động cập nhật cho tất cả các Script bạn đã đăng trước đây!
+                  </p>
+                </div>
               </div>
             </div>
 
