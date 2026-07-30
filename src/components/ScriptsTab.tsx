@@ -9,7 +9,8 @@ import {
   addScriptReport,
   subscribeScriptComments,
   addScriptComment,
-  toggleLikeComment
+  toggleLikeComment,
+  buffCommunityScriptLikes
 } from '../lib/communityService';
 import { 
   Search, 
@@ -74,6 +75,11 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
   const [selectedScriptForReport, setSelectedScriptForReport] = useState<CommunityScript | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [reportSuccess, setReportSuccess] = useState(false);
+
+  // Admin Buff Like Modal State
+  const [adminBuffScript, setAdminBuffScript] = useState<CommunityScript | null>(null);
+  const [buffLikeInput, setBuffLikeInput] = useState<number>(100);
+  const [buffSuccessMsg, setBuffSuccessMsg] = useState<string | null>(null);
 
   // Subscribe Community Scripts
   useEffect(() => {
@@ -149,12 +155,38 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
   };
 
   // Like & Dislike
-  const handleLike = (scriptId: string) => {
+  const handleLike = (item: CommunityScript) => {
+    const isAdmin = localStorage.getItem('is_admin_mode') === 'true';
+    if (isAdmin) {
+      setAdminBuffScript(item);
+      setBuffLikeInput(100);
+      setBuffSuccessMsg(null);
+      return;
+    }
+
     requireAuth('thả tim Script', () => {
       if (currentUser) {
-        toggleLikeCommunityScript(scriptId, currentUser.uid);
+        toggleLikeCommunityScript(item.id, currentUser.uid);
       }
     });
+  };
+
+  const handleConfirmBuffLikes = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminBuffScript) return;
+    const amount = Number(buffLikeInput);
+    if (isNaN(amount) || amount <= 0) return;
+
+    try {
+      await buffCommunityScriptLikes(adminBuffScript.id, amount);
+      setBuffSuccessMsg(`Đã buff thành công +${amount} Likes cho Script "${adminBuffScript.title}"!`);
+      setTimeout(() => {
+        setAdminBuffScript(null);
+        setBuffSuccessMsg(null);
+      }, 1500);
+    } catch (err: any) {
+      alert('Lỗi buff likes: ' + err.message);
+    }
   };
 
   const handleDislike = (scriptId: string) => {
@@ -476,7 +508,7 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
                         <div className="flex items-center gap-2">
                           {/* Like Button */}
                           <button
-                            onClick={() => handleLike(item.id)}
+                            onClick={() => handleLike(item)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                               isLiked
                                 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30'
@@ -791,6 +823,96 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
                     className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold shadow-lg shadow-rose-500/30 cursor-pointer"
                   >
                     GỬI BÁO CÁO
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== ADMIN BUFF LIKE MODAL ==================== */}
+      {adminBuffScript && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="bg-slate-900 border border-amber-500/40 max-w-md w-full rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Sparkles className="w-5 h-5 animate-spin" />
+                <h3 className="text-sm font-black uppercase tracking-wider">BUFF LIKE SCRIPT (ADMIN)</h3>
+              </div>
+              <button
+                onClick={() => setAdminBuffScript(null)}
+                className="p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {buffSuccessMsg ? (
+              <div className="p-4 rounded-xl bg-emerald-950/60 text-emerald-300 text-xs font-bold text-center">
+                {buffSuccessMsg}
+              </div>
+            ) : (
+              <form onSubmit={handleConfirmBuffLikes} className="space-y-4">
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-1">
+                  <p className="text-slate-300">
+                    Script: <strong className="text-purple-300 font-mono">{adminBuffScript.title}</strong>
+                  </p>
+                  <p className="text-slate-400">
+                    Tác giả: <strong className="text-slate-200">{adminBuffScript.authorName}</strong> | Hiện tại: <span className="text-amber-400 font-bold font-mono">{adminBuffScript.likes} Likes</span>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase">
+                    Nhập số Like muốn buff thêm cho Script này
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={buffLikeInput}
+                    onChange={(e) => setBuffLikeInput(Number(e.target.value))}
+                    placeholder="Ví dụ: 100"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-amber-400 font-mono font-bold text-sm focus:outline-none focus:border-amber-400"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {[10, 50, 100, 500, 1000, 5000].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setBuffLikeInput(num)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                          buffLikeInput === num
+                            ? 'bg-amber-400 text-slate-950 font-black'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        +{num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentUser) {
+                        toggleLikeCommunityScript(adminBuffScript.id, currentUser.uid);
+                      }
+                      setAdminBuffScript(null);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                  >
+                    Thả 1 Like Thường
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 font-black text-xs uppercase shadow-lg shadow-amber-500/20 cursor-pointer"
+                  >
+                    XÁC NHẬN BUFF LIKE
                   </button>
                 </div>
               </form>

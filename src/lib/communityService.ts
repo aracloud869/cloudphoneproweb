@@ -98,6 +98,20 @@ export async function toggleLikeCommunityScript(scriptId: string, userUid: strin
   });
 }
 
+export async function buffCommunityScriptLikes(scriptId: string, additionalLikes: number) {
+  const docRef = userDoc(userDb, 'community_scripts', scriptId);
+  const snap = await userGetDoc(docRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const currentLikes = typeof data.likes === 'number' ? data.likes : 0;
+  const newLikes = Math.max(0, currentLikes + additionalLikes);
+
+  await userUpdateDoc(docRef, {
+    likes: newLikes
+  });
+}
+
 export async function toggleDislikeCommunityScript(scriptId: string, userUid: string) {
   const docRef = userDoc(userDb, 'community_scripts', scriptId);
   const snap = await userGetDoc(docRef);
