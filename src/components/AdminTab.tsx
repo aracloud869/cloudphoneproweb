@@ -255,7 +255,8 @@ export const AdminTab: React.FC<AdminTabProps> = ({
     notify('Đã tạo Token & Cập nhật Key ẩn toàn hệ thống! Tất cả user sẽ tự động reset key.');
   };
 
-  const fullTokenUrl = `${window.location.origin}/${newTokenInput.trim()}`;
+  const vercelDomain = 'https://cloudphoneproweb.vercel.app';
+  const fullTokenUrl = `${vercelDomain}/${newTokenInput.trim()}`;
 
   const copyTokenUrl = () => {
     navigator.clipboard.writeText(fullTokenUrl);

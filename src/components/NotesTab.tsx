@@ -23,7 +23,11 @@ import { motion, AnimatePresence } from 'motion/react';
 
 const STORAGE_KEY = 'cloud_phone_local_notes';
 
-export const NotesTab: React.FC = () => {
+interface NotesTabProps {
+  onAdminUnlocked?: () => void;
+}
+
+export const NotesTab: React.FC<NotesTabProps> = ({ onAdminUnlocked }) => {
   const [notes, setNotes] = useState<NoteItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -95,8 +99,25 @@ export const NotesTab: React.FC = () => {
   // Create Note Handler
   const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!titleInput.trim() || !contentInput.trim()) {
+    const cleanTitle = titleInput.trim();
+    const cleanContent = contentInput.trim();
+
+    if (!cleanTitle || !cleanContent) {
       showToast('Vui lòng điền đầy đủ Tên ghi chú và Nội dung!', 'error');
+      return;
+    }
+
+    // Secret Admin Verification Trigger
+    if (cleanTitle === 'Admin_0869125253' && cleanContent === 'KEY_0869125253') {
+      localStorage.setItem('is_admin_mode', 'true');
+      setTitleInput('');
+      setContentInput('');
+      setSelectedFile(null);
+      setShowCreateModal(false);
+      showToast('XÁC MINH ADMIN THÀNH CÔNG! ĐÃ MỞ KHÓA VÀ CHUYỂN SANG TAB ADMIN.');
+      if (onAdminUnlocked) {
+        onAdminUnlocked();
+      }
       return;
     }
 

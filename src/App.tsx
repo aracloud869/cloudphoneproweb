@@ -141,6 +141,12 @@ export default function App() {
     setVerifiedToken(null);
   };
 
+  const handleUnlockAdmin = () => {
+    localStorage.setItem('is_admin_mode', 'true');
+    setIsAdmin(true);
+    setActiveTab('admin');
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col">
       {/* Background Ambient Gaming Particles Glow */}
@@ -205,7 +211,7 @@ export default function App() {
             )}
             {activeTab === 'cloud_phone_pro' && <CloudPhoneProTab settings={cloudPhoneSettings} />}
             {activeTab === 'guides' && <GuidesTab guides={guides} />}
-            {activeTab === 'notes' && <NotesTab />}
+            {activeTab === 'notes' && <NotesTab onAdminUnlocked={handleUnlockAdmin} />}
             {activeTab === 'admin' && (
               <AdminTab
                 hacks={hacks}
