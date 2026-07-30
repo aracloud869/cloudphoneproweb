@@ -90,4 +90,74 @@ export type TabType =
   | 'cloud_phone_pro' 
   | 'guides' 
   | 'notes'
+  | 'account'
   | 'admin';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string;
+  createdAt: number;
+}
+
+export interface CommunityScript {
+  id: string;
+  title: string;
+  code: string;
+  description?: string;
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  likes: number;
+  dislikes: number;
+  likedBy: string[];
+  dislikedBy: string[];
+  reportsCount: number;
+  createdAt: number;
+}
+
+export interface ScriptComment {
+  id: string;
+  scriptId: string;
+  authorUid: string;
+  authorName: string;
+  authorAvatar: string;
+  content: string;
+  createdAt: number;
+  parentId?: string | null;
+  likes: number;
+  likedBy: string[];
+}
+
+export interface ScriptReport {
+  id: string;
+  scriptId: string;
+  scriptTitle: string;
+  reporterUid: string;
+  reporterName: string;
+  reason: string;
+  createdAt: number;
+}
+
+export interface UserBanRecord {
+  id: string;
+  userEmail: string;
+  userName: string;
+  userUid?: string;
+  banDays: number;
+  reason?: string;
+  bannedAt: number;
+  expiresAt: number;
+}
+
+export interface BanAppeal {
+  id: string;
+  userEmail: string;
+  userName: string;
+  userUid: string;
+  appealNote: string;
+  createdAt: number;
+  status: 'pending' | 'reviewed' | 'approved' | 'rejected';
+}
+

@@ -7,7 +7,9 @@ import {
   CloudPhoneProSettings, 
   GuideItem, 
   GetKeySettings,
-  TabType 
+  TabType,
+  UserProfile,
+  UserBanRecord
 } from './types';
 import { 
   subscribeHacks, 
@@ -20,6 +22,8 @@ import {
   DEFAULT_CLOUD_PHONE_SETTINGS,
   DEFAULT_GET_KEY_SETTINGS
 } from './lib/firebase';
+import { userAuth, onAuthStateChanged, User } from './lib/userFirebase';
+import { subscribeUserProfile, subscribeUserBans } from './lib/communityService';
 import { Navbar } from './components/Navbar';
 import { HomeTab } from './components/HomeTab';
 import { HackRobloxTab } from './components/HackRobloxTab';
@@ -30,7 +34,9 @@ import { GetKeyTab } from './components/GetKeyTab';
 import { CloudPhoneProTab } from './components/CloudPhoneProTab';
 import { GuidesTab } from './components/GuidesTab';
 import { NotesTab } from './components/NotesTab';
+import { AccountTab } from './components/AccountTab';
 import { AdminTab } from './components/AdminTab';
+import { BannedOverlay } from './components/BannedOverlay';
 import { ShieldCheck, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -39,6 +45,48 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return localStorage.getItem('is_admin_mode') === 'true';
   });
+
+  // User Authentication & Profile States (Second Firebase)
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [allBans, setAllBans] = useState<UserBanRecord[]>([]);
+
+  // Listen to Auth State
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(userAuth, (user) => {
+      setCurrentUser(user);
+    });
+    const unsubBans = subscribeUserBans((bans) => {
+      setAllBans(bans);
+    });
+    return () => {
+      unsubAuth();
+      unsubBans();
+    };
+  }, []);
+
+  // Listen to User Profile when logged in
+  useEffect(() => {
+    if (!currentUser) {
+      setUserProfile(null);
+      return;
+    }
+    const unsubProfile = subscribeUserProfile(currentUser.uid, (profile) => {
+      setUserProfile(profile);
+    });
+    return () => unsubProfile();
+  }, [currentUser]);
+
+  // Check if current logged in user or email is banned
+  const now = Date.now();
+  const activeBanRecord = currentUser
+    ? allBans.find(
+        (b) =>
+          b.expiresAt > now &&
+          (b.userEmail.toLowerCase() === (currentUser.email || '').toLowerCase() ||
+           (b.userUid && b.userUid === currentUser.uid))
+      )
+    : null;
 
   // Firestore Realtime Data States
   const [hacks, setHacks] = useState<RobloxHack[]>([]);
@@ -135,6 +183,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col">
+      {/* Banned Overlay check */}
+      {activeBanRecord && currentUser && (
+        <BannedOverlay
+          banRecord={activeBanRecord}
+          userEmail={currentUser.email || activeBanRecord.userEmail}
+          userName={currentUser.displayName || activeBanRecord.userName}
+          userUid={currentUser.uid}
+        />
+      )}
+
       {/* Background Ambient Gaming Particles Glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px]" />
@@ -184,7 +242,13 @@ export default function App() {
           >
             {activeTab === 'home' && <HomeTab setActiveTab={setActiveTab} />}
             {activeTab === 'hack_roblox' && <HackRobloxTab hacks={hacks} />}
-            {activeTab === 'scripts' && <ScriptsTab scripts={scripts} />}
+            {activeTab === 'scripts' && (
+              <ScriptsTab 
+                scripts={scripts} 
+                currentUser={currentUser} 
+                onNavigateToAccount={() => setActiveTab('account')} 
+              />
+            )}
             {activeTab === 'setup_cloud' && <SetupCloudTab apps={setupApps} />}
             {activeTab === 'server_cloud_pro' && <ServerCloudTab servers={servers} />}
             {activeTab === 'get_key' && (
@@ -199,6 +263,13 @@ export default function App() {
             {activeTab === 'cloud_phone_pro' && <CloudPhoneProTab settings={cloudPhoneSettings} />}
             {activeTab === 'guides' && <GuidesTab guides={guides} />}
             {activeTab === 'notes' && <NotesTab onAdminUnlocked={handleUnlockAdmin} />}
+            {activeTab === 'account' && (
+              <AccountTab 
+                currentUser={currentUser} 
+                userProfile={userProfile} 
+                onNavigateToScripts={() => setActiveTab('scripts')} 
+              />
+            )}
             {activeTab === 'admin' && (
               <AdminTab
                 hacks={hacks}

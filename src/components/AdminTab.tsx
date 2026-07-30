@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   RobloxHack, 
   ScriptItem, 
@@ -7,7 +7,10 @@ import {
   CloudPhoneProSettings, 
   GuideItem, 
   GetKeySettings,
-  HackVersion
+  HackVersion,
+  ScriptReport,
+  UserBanRecord,
+  BanAppeal
 } from '../types';
 import { 
   saveHack, 
@@ -24,6 +27,16 @@ import {
   updateGetKeySettings 
 } from '../lib/firebase';
 import { 
+  subscribeScriptReports, 
+  deleteScriptReport, 
+  deleteCommunityScript, 
+  subscribeUserBans, 
+  banUserRecord, 
+  unbanUserRecord, 
+  subscribeBanAppeals, 
+  updateBanAppealStatus 
+} from '../lib/communityService';
+import { 
   ShieldCheck, 
   Plus, 
   Trash2, 
@@ -39,7 +52,11 @@ import {
   X,
   ExternalLink,
   Layers,
-  Copy
+  Copy,
+  Flag,
+  UserX,
+  MessageSquareWarning,
+  UserCheck
 } from 'lucide-react';
 
 interface AdminTabProps {
@@ -52,7 +69,7 @@ interface AdminTabProps {
   getKeySettings: GetKeySettings;
 }
 
-type AdminSubTab = 'hacks' | 'scripts' | 'setup_cloud' | 'server_cloud' | 'cloud_phone' | 'guides' | 'get_key';
+type AdminSubTab = 'hacks' | 'scripts' | 'setup_cloud' | 'server_cloud' | 'cloud_phone' | 'guides' | 'get_key' | 'script_reports' | 'ban_management' | 'ban_appeals';
 
 export const AdminTab: React.FC<AdminTabProps> = ({
   hacks,
@@ -70,6 +87,103 @@ export const AdminTab: React.FC<AdminTabProps> = ({
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(''), 3000);
   };
+
+  // --- Community Admin States ---
+  const [reports, setReports] = useState<ScriptReport[]>([]);
+  const [bans, setBans] = useState<UserBanRecord[]>([]);
+  const [appeals, setAppeals] = useState<BanAppeal[]>([]);
+
+  // Ban Form State
+  const [banUserEmail, setBanUserEmail] = useState('');
+  const [banUserName, setBanUserName] = useState('');
+  const [banDaysInput, setBanDaysInput] = useState(7);
+  const [banReasonInput, setBanReasonInput] = useState('');
+
+  useEffect(() => {
+    const unsubReports = subscribeScriptReports(setReports);
+    const unsubBans = subscribeUserBans(setBans);
+    const unsubAppeals = subscribeBanAppeals(setAppeals);
+
+    return () => {
+      unsubReports();
+      unsubBans();
+      unsubAppeals();
+    };
+  }, []);
+
+  const handleBanUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!banUserEmail.trim()) return;
+
+    try {
+      await banUserRecord({
+        userEmail: banUserEmail.trim(),
+        userName: banUserName.trim() || 'Người dùng',
+        banDays: Number(banDaysInput) || 7,
+        reason: banReasonInput.trim() || 'Vi phạm điều khoản ứng dụng.'
+      });
+      notify(`Đã khóa (ban) tài khoản ${banUserEmail} trong ${banDaysInput} ngày!`);
+      setBanUserEmail('');
+      setBanUserName('');
+      setBanDaysInput(7);
+      setBanReasonInput('');
+    } catch (err: any) {
+      alert('Lỗi ban user: ' + err.message);
+    }
+  };
+
+  const handleUnbanUser = async (banId: string, email: string) => {
+    try {
+      await unbanUserRecord(banId);
+      notify(`Đã gỡ ban thành công cho ${email}!`);
+    } catch (err: any) {
+      alert('Lỗi gỡ ban: ' + err.message);
+    }
+  };
+
+  const handleApproveAppeal = async (appeal: BanAppeal) => {
+    try {
+      // Find matching ban record and remove
+      const matchingBan = bans.find(b => b.userEmail.toLowerCase() === appeal.userEmail.toLowerCase());
+      if (matchingBan) {
+        await unbanUserRecord(matchingBan.id);
+      }
+      await updateBanAppealStatus(appeal.id, 'approved');
+      notify(`Đã duyệt kháng cáo và gỡ ban cho ${appeal.userEmail}!`);
+    } catch (err: any) {
+      alert('Lỗi duyệt kháng cáo: ' + err.message);
+    }
+  };
+
+  const handleRejectAppeal = async (appealId: string) => {
+    try {
+      await updateBanAppealStatus(appealId, 'rejected');
+      notify('Đã từ chối đơn kháng cáo.');
+    } catch (err: any) {
+      alert('Lỗi xử lý kháng cáo: ' + err.message);
+    }
+  };
+
+  const handleDeleteReportedScript = async (reportId: string, scriptId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn XÓA Script bị báo cáo này khỏi cộng đồng?')) return;
+    try {
+      await deleteCommunityScript(scriptId);
+      await deleteScriptReport(reportId);
+      notify('Đã xóa Script vi phạm và dọn dẹp báo cáo thành công!');
+    } catch (err: any) {
+      alert('Lỗi xóa Script: ' + err.message);
+    }
+  };
+
+  const handleDismissReport = async (reportId: string) => {
+    try {
+      await deleteScriptReport(reportId);
+      notify('Đã bỏ qua báo cáo.');
+    } catch (err: any) {
+      alert('Lỗi bỏ qua báo cáo: ' + err.message);
+    }
+  };
+
 
   // --- 1. Hack Roblox State ---
   const [editingHackId, setEditingHackId] = useState<string | null>(null);
@@ -298,6 +412,9 @@ export const AdminTab: React.FC<AdminTabProps> = ({
           { id: 'cloud_phone', label: 'App Cloud Phone Pro', icon: <Smartphone className="w-4 h-4" /> },
           { id: 'guides', label: 'Hướng Dẫn', icon: <HelpCircle className="w-4 h-4" /> },
           { id: 'get_key', label: 'Get Key & Token', icon: <KeyRound className="w-4 h-4" /> },
+          { id: 'script_reports', label: `Báo Cáo Script (${reports.length})`, icon: <Flag className="w-4 h-4 text-rose-400" /> },
+          { id: 'ban_management', label: `Quản Lý Ban (${bans.length})`, icon: <UserX className="w-4 h-4 text-amber-400" /> },
+          { id: 'ban_appeals', label: `Đơn Kháng Cáo (${appeals.length})`, icon: <MessageSquareWarning className="w-4 h-4 text-cyan-400" /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -845,6 +962,246 @@ export const AdminTab: React.FC<AdminTabProps> = ({
             CẬP NHẬT TOKEN & RESET KEY TẤT CẢ USER (CẬP NHẬT ALL)
           </button>
         </form>
+      )}
+
+      {/* ---------------- SUB TAB 8: BÁO CÁO SCRIPT ---------------- */}
+      {activeSubTab === 'script_reports' && (
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Flag className="w-5 h-5 text-rose-400" />
+              Danh Sách Báo Cáo Script Từ Người Dùng ({reports.length})
+            </h2>
+            <p className="text-xs text-slate-400">
+              Xem danh sách các Script cộng đồng bị báo cáo để quản lý, dọn dẹp các script spam hoặc vi phạm.
+            </p>
+          </div>
+
+          {reports.length === 0 ? (
+            <div className="p-12 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-500 text-xs italic">
+              Không có báo cáo nào chưa xử lý.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {reports.map((rep) => (
+                <div key={rep.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-bold text-white text-sm">
+                        Script: <span className="text-purple-300 font-mono">{rep.scriptTitle}</span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Người báo cáo: <strong className="text-slate-200">{rep.reporterName}</strong> | 
+                        Thời gian: {new Date(rep.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDismissReport(rep.id)}
+                        className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                      >
+                        Bỏ qua
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReportedScript(rep.id, rep.scriptId)}
+                        className="px-4 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-lg shadow-rose-500/20"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Xóa Script Này
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-rose-300 font-medium">
+                    Lý do báo cáo: {rep.reason}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- SUB TAB 9: QUẢN LÝ BAN & GỠ BAN ---------------- */}
+      {activeSubTab === 'ban_management' && (
+        <div className="space-y-8">
+          {/* Ban Form */}
+          <form onSubmit={handleBanUserSubmit} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <UserX className="w-5 h-5 text-amber-400" />
+              Khóa Tài Khoản Người Dùng (Ban User)
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1">Email Người Dùng *</label>
+                <input
+                  type="email"
+                  required
+                  value={banUserEmail}
+                  onChange={(e) => setBanUserEmail(e.target.value)}
+                  placeholder="user@gmail.com"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 text-slate-200 rounded-xl border border-slate-800 text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1">Tên Người Dùng</label>
+                <input
+                  type="text"
+                  value={banUserName}
+                  onChange={(e) => setBanUserName(e.target.value)}
+                  placeholder="Tên hoặc biệt danh..."
+                  className="w-full px-3.5 py-2.5 bg-slate-950 text-slate-200 rounded-xl border border-slate-800 text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1">Số Ngày Ban *</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={banDaysInput}
+                  onChange={(e) => setBanDaysInput(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 bg-slate-950 text-amber-400 font-mono font-bold rounded-xl border border-slate-800 text-xs focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-slate-400 mb-1">Lý Do Khóa (Ban)</label>
+              <input
+                type="text"
+                value={banReasonInput}
+                onChange={(e) => setBanReasonInput(e.target.value)}
+                placeholder="Ví dụ: Spam script bậy bạ, vi phạm quy định..."
+                className="w-full px-3.5 py-2.5 bg-slate-950 text-slate-200 rounded-xl border border-slate-800 text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 cursor-pointer"
+            >
+              THỰC HIỆN KHÓA TÀI KHOẢN (BAN)
+            </button>
+          </form>
+
+          {/* Active Bans List */}
+          <div className="space-y-4">
+            <h2 className="text-base font-bold text-white uppercase tracking-wider">
+              Danh Sách Tài Khoản Đang Bị Khóa ({bans.length})
+            </h2>
+
+            {bans.length === 0 ? (
+              <div className="p-8 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-500 text-xs italic">
+                Chưa có tài khoản nào bị khóa.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {bans.map((b) => {
+                  const now = Date.now();
+                  const remainingDays = Math.ceil(Math.max(0, b.expiresAt - now) / (1000 * 60 * 60 * 24));
+
+                  return (
+                    <div key={b.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="font-bold text-white text-sm">{b.userName}</h3>
+                          <p className="text-xs font-mono text-amber-400">{b.userEmail}</p>
+                        </div>
+
+                        <button
+                          onClick={() => handleUnbanUser(b.id, b.userEmail)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 border border-emerald-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" /> Gỡ Ban
+                        </button>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1">
+                        <div className="flex justify-between text-slate-400">
+                          <span>Số ngày ban: <strong>{b.banDays} ngày</strong></span>
+                          <span>Còn lại: <strong className="text-rose-400">{remainingDays} ngày</strong></span>
+                        </div>
+                        <p className="text-slate-300 italic pt-1">Lý do: {b.reason || 'Không rõ'}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- SUB TAB 10: ĐƠN KHÁNG CÁO ---------------- */}
+      {activeSubTab === 'ban_appeals' && (
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <MessageSquareWarning className="w-5 h-5 text-cyan-400" />
+              Danh Sách Đơn Kháng Cáo / Biện Minh Từ Người Dùng ({appeals.length})
+            </h2>
+            <p className="text-xs text-slate-400">
+              Xem xét các lá thư biện minh của những tài khoản bị ban để xem xét duyệt gỡ ban.
+            </p>
+          </div>
+
+          {appeals.length === 0 ? (
+            <div className="p-12 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-500 text-xs italic">
+              Chưa có đơn kháng cáo nào.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {appeals.map((app) => (
+                <div key={app.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-white text-sm">{app.userName}</h3>
+                      <p className="text-xs font-mono text-cyan-400">{app.userEmail}</p>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        Thời gian gửi: {new Date(app.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {app.status === 'approved' ? (
+                        <span className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                          Đã Duyệt &amp; Gỡ Ban
+                        </span>
+                      ) : app.status === 'rejected' ? (
+                        <span className="px-3 py-1 rounded-lg bg-rose-500/20 text-rose-400 text-xs font-bold border border-rose-500/30">
+                          Đã Từ Chối
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleRejectAppeal(app.id)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                          >
+                            Từ chối
+                          </button>
+                          <button
+                            onClick={() => handleApproveAppeal(app)}
+                            className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-lg shadow-emerald-500/20 cursor-pointer"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" /> Duyệt &amp; Gỡ Ban
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 leading-relaxed font-mono">
+                    "{app.appealNote}"
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

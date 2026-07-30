@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Sparkles,
   Flame,
-  StickyNote
+  StickyNote,
+  User
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -31,7 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, isAdmin
     { id: 'get_key', label: 'Get Key', icon: <KeyRound className="w-4 h-4" />, isBadge: 'KEY' },
     { id: 'cloud_phone_pro', label: 'Cloud Phone Pro', icon: <Smartphone className="w-4 h-4" />, isBadge: 'PRO' },
     { id: 'guides', label: 'Hướng Dẫn', icon: <HelpCircle className="w-4 h-4" /> },
-    { id: 'notes', label: 'Ghi Chú', icon: <StickyNote className="w-4 h-4" />, isBadge: 'NEW' },
+    { id: 'notes', label: 'Ghi Chú', icon: <StickyNote className="w-4 h-4" /> },
+    { id: 'account', label: 'Tài Khoản', icon: <User className="w-4 h-4 text-cyan-400" />, isBadge: 'VIP' },
   ];
 
   if (isAdmin) {
