@@ -90,8 +90,7 @@ export const SetupCloudTab: React.FC<SetupCloudTabProps> = ({ apps }) => {
               <div className="w-full sm:w-auto flex justify-end">
                 <a
                   href={app.downloadUrl || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target="_self"
                   className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-500/20 hover:scale-105 transition-all duration-200"
                 >
                   <Download className="w-4 h-4" />

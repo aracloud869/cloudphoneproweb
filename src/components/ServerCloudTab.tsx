@@ -91,8 +91,7 @@ export const ServerCloudTab: React.FC<ServerCloudTabProps> = ({ servers }) => {
               <div className="w-full sm:w-auto flex justify-end">
                 <a
                   href={server.targetUrl || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target="_self"
                   className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-xs sm:text-sm shadow-md shadow-amber-500/20 hover:scale-105 transition-all duration-200"
                 >
                   <span>Đi</span>

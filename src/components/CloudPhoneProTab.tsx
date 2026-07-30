@@ -64,8 +64,7 @@ export const CloudPhoneProTab: React.FC<CloudPhoneProTabProps> = ({ settings }) 
             <div className="pt-2">
               <a
                 href={settings.downloadUrl || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_self"
                 className="inline-flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:to-pink-400 text-white font-black text-sm sm:text-base shadow-xl shadow-indigo-500/30 hover:scale-105 transition-all duration-200"
               >
                 <Download className="w-5 h-5 animate-bounce" />

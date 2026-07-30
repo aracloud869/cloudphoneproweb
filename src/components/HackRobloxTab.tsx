@@ -161,8 +161,7 @@ export const HackRobloxTab: React.FC<HackRobloxTabProps> = ({ hacks }) => {
 
                       <a
                         href={ver.downloadUrl || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        target="_self"
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500 hover:text-slate-950 border border-cyan-500/40 text-xs font-bold transition-all"
                       >
                         Tải Ngay <ExternalLink className="w-3.5 h-3.5" />

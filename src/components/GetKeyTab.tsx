@@ -48,7 +48,7 @@ export const GetKeyTab: React.FC<GetKeyTabProps> = ({
 
   const handleGetKeyDown = () => {
     if (settings.getKeyUrl) {
-      window.open(settings.getKeyUrl, '_blank');
+      window.location.href = settings.getKeyUrl;
     }
   };
 
