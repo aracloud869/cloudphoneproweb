@@ -773,16 +773,16 @@ export const AdminTab: React.FC<AdminTabProps> = ({
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <KeyRound className="w-5 h-5 text-amber-400" />
-              Quản Lý Key Ẩn & Token Xác Minh Vượt Link
+              Quản Lý Key Ẩn &amp; Token Xác Minh
             </h2>
             <p className="text-xs text-slate-400">
-              Khi tạo Token mới tại đây, Firebase sẽ cập nhật dữ liệu tới tất cả người dùng real-time. Tất cả user sẽ bị reset key về trạng thái "Chưa có key" cho tới khi họ truy cập Token URL mới này.
+              Người dùng sẽ lấy chuỗi Token xác minh sau khi vượt link, sau đó bấm vào Ổ Khóa ở tab Get Key để nhập mở xích nhận Key. Cập nhật Token mới tại đây sẽ tự động yêu cầu tất cả người dùng nhập Token mới.
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-mono text-amber-300 font-bold mb-1">1. Key Ẩn (Key Sẽ Hiện Khi User Vượt Link Thành Công)</label>
+              <label className="block text-xs font-mono text-amber-300 font-bold mb-1">1. Key Ẩn (Key Sẽ Hiện Khi Nhập Token Đúng)</label>
               <input
                 type="text"
                 value={keyHiddenString}
@@ -806,29 +806,33 @@ export const AdminTab: React.FC<AdminTabProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-amber-300 font-bold mb-1">3. Token Chuỗi Mã Hóa (Ví dụ: ughtwkn183748gscbclncvu)</label>
+              <label className="block text-xs font-mono text-amber-300 font-bold mb-1">3. Chuỗi Token Xác Minh (Dùng để mở ổ khóa xích)</label>
               <input
                 type="text"
                 value={newTokenInput}
                 onChange={(e) => setNewTokenInput(e.target.value)}
                 placeholder="ughtwkn183748gscbclncvu"
-                className="w-full px-4 py-2.5 bg-slate-950 text-pink-300 font-mono rounded-xl border border-slate-800 text-sm"
+                className="w-full px-4 py-2.5 bg-slate-950 text-pink-300 font-mono font-bold rounded-xl border border-slate-800 text-sm"
                 required
               />
             </div>
 
-            {/* Generated Token Link Preview */}
+            {/* Token Preview & Quick Copy */}
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-              <span className="text-xs font-mono text-slate-400 block">Link Token Tự Động Tạo (Cài link này làm đích đến sau khi vượt link rút gọn):</span>
+              <span className="text-xs font-mono text-slate-400 block">Chuỗi Token Hiện Tại:</span>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-mono text-emerald-400 font-bold truncate">{fullTokenUrl}</span>
+                <span className="text-xs font-mono text-emerald-400 font-bold truncate">{newTokenInput}</span>
                 <button
                   type="button"
-                  onClick={copyTokenUrl}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 border border-emerald-500/40 text-xs font-bold flex items-center gap-1"
+                  onClick={() => {
+                    navigator.clipboard.writeText(newTokenInput);
+                    setTokenCopied(true);
+                    setTimeout(() => setTokenCopied(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 border border-emerald-500/40 text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
                   {tokenCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {tokenCopied ? 'Đã Copy!' : 'Sao Chép Link'}
+                  {tokenCopied ? 'Đã Copy!' : 'Sao Chép Token'}
                 </button>
               </div>
             </div>

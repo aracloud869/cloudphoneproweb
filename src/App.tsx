@@ -76,7 +76,7 @@ export default function App() {
     };
   }, []);
 
-  // 2. Handle URL Route & Token Verification Parsing
+  // 2. Handle Admin URL Route Check
   useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname.replace(/^\/+/, '').trim();
@@ -87,37 +87,13 @@ export default function App() {
         setIsAdmin(true);
         setActiveTab('admin');
         window.history.replaceState({}, document.title, '/');
-        return;
-      }
-
-      if (!path) return;
-
-      const activeTokenClean = (getKeySettings.activeToken || DEFAULT_GET_KEY_SETTINGS.activeToken).trim();
-
-      // Check if visited path matches active token OR looks like a valid token URL
-      const isTokenMatch = path.toLowerCase() === activeTokenClean.toLowerCase();
-      const isCustomTokenPath = path.length > 5 && !['home', 'hack_roblox', 'scripts', 'setup_cloud', 'server_cloud_pro', 'get_key', 'cloud_phone_pro', 'guides', 'notes', 'admin'].includes(path);
-
-      if (isTokenMatch || isCustomTokenPath) {
-        const tokenToSave = activeTokenClean || path;
-        localStorage.setItem('user_verified_token', tokenToSave);
-        setVerifiedToken(tokenToSave);
-        setShowVerificationBanner(true);
-        setActiveTab('get_key');
-
-        // Clean URL to '/' without reloading
-        window.history.replaceState({}, document.title, '/');
-
-        setTimeout(() => {
-          setShowVerificationBanner(false);
-        }, 6000);
       }
     };
 
     checkRoute();
     window.addEventListener('popstate', checkRoute);
     return () => window.removeEventListener('popstate', checkRoute);
-  }, [getKeySettings.activeToken]);
+  }, []);
 
   // Clean Token strings for robust comparison
   const activeTokenClean = (getKeySettings.activeToken || DEFAULT_GET_KEY_SETTINGS.activeToken).trim();
@@ -127,11 +103,21 @@ export default function App() {
   const isUserKeyVerified = Boolean(
     verifiedTokenClean &&
     activeTokenClean &&
-    (
-      verifiedTokenClean.toLowerCase() === activeTokenClean.toLowerCase() ||
-      (verifiedTokenClean.length > 5 && activeTokenClean === DEFAULT_GET_KEY_SETTINGS.activeToken)
-    )
+    verifiedTokenClean.toLowerCase() === activeTokenClean.toLowerCase()
   );
+
+  // Verify entered token against current active token
+  const handleVerifyToken = (tokenInput: string): boolean => {
+    const cleanInput = tokenInput.trim();
+    if (cleanInput && activeTokenClean && cleanInput.toLowerCase() === activeTokenClean.toLowerCase()) {
+      localStorage.setItem('user_verified_token', cleanInput);
+      setVerifiedToken(cleanInput);
+      setShowVerificationBanner(true);
+      setTimeout(() => setShowVerificationBanner(false), 5000);
+      return true;
+    }
+    return false;
+  };
 
   // Guaranteed non-empty hidden key string to display
   const effectiveHiddenKey = (getKeySettings.hiddenKey || '').trim() || DEFAULT_GET_KEY_SETTINGS.hiddenKey;
@@ -207,6 +193,7 @@ export default function App() {
                 isKeyVerified={isUserKeyVerified}
                 userKey={isUserKeyVerified ? effectiveHiddenKey : null}
                 resetUserKey={resetUserKey}
+                onVerifyToken={handleVerifyToken}
               />
             )}
             {activeTab === 'cloud_phone_pro' && <CloudPhoneProTab settings={cloudPhoneSettings} />}
