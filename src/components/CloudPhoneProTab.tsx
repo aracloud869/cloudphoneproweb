@@ -1,13 +1,76 @@
 import React, { useState } from 'react';
 import { CloudPhoneProSettings } from '../types';
-import { Download, Smartphone, Star, Cpu, ShieldCheck, Zap, Sparkles, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { 
+  Download, 
+  Smartphone, 
+  Star, 
+  Cpu, 
+  ShieldCheck, 
+  Sparkles, 
+  CheckCircle, 
+  Image as ImageIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2
+} from 'lucide-react';
 
 interface CloudPhoneProTabProps {
   settings: CloudPhoneProSettings;
 }
 
+const PreviewImageCard: React.FC<{
+  src: string;
+  index: number;
+  total: number;
+  onOpen: (index: number) => void;
+}> = ({ src, index, total, onOpen }) => {
+  const [aspect, setAspect] = useState<'landscape' | 'portrait' | 'square'>('portrait');
+
+  return (
+    <div
+      onClick={() => onOpen(index)}
+      className={`group relative flex-shrink-0 snap-start rounded-2xl bg-slate-900 border border-slate-800/80 overflow-hidden cursor-pointer hover:border-indigo-500/60 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 ${
+        aspect === 'portrait'
+          ? 'w-[150px] sm:w-[185px] h-[265px] sm:h-[325px]'
+          : aspect === 'square'
+          ? 'w-[200px] sm:w-[250px] h-[200px] sm:h-[250px]'
+          : 'w-[280px] sm:w-[360px] h-[160px] sm:h-[205px]'
+      }`}
+    >
+      <img
+        src={src}
+        alt={`Preview ${index + 1}`}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (img.naturalWidth && img.naturalHeight) {
+            const ratio = img.naturalWidth / img.naturalHeight;
+            if (ratio > 1.15) {
+              setAspect('landscape');
+            } else if (ratio < 0.85) {
+              setAspect('portrait');
+            } else {
+              setAspect('square');
+            }
+          }
+        }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).src =
+            "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80";
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3">
+        <span className="text-[10px] text-white font-mono font-semibold flex items-center gap-1 bg-slate-950/70 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/50">
+          <Maximize2 className="w-3 h-3 text-indigo-400" /> Phóng to ({index + 1}/{total})
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export const CloudPhoneProTab: React.FC<CloudPhoneProTabProps> = ({ settings }) => {
-  const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
 
   const images = settings.previewImages || [
     "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80",
@@ -75,34 +138,28 @@ export const CloudPhoneProTab: React.FC<CloudPhoneProTabProps> = ({ settings }) 
         </div>
       </div>
 
-      {/* Screenshot / Preview Images Section */}
+      {/* Screenshot / Preview Images Section (Google Play Style Horizontal Scroll) */}
       <div className="space-y-3">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-          <ImageIcon className="w-5 h-5 text-indigo-400" />
-          HÌNH ẢNH XEM TRƯỚC APP
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <ImageIcon className="w-5 h-5 text-indigo-400" />
+            HÌNH ẢNH XEM TRƯỚC APP
+          </h2>
+          <span className="text-xs text-slate-400 font-mono hidden sm:inline-block">
+            ← Vuốt ngang để xem thêm →
+          </span>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Horizontal Scroll Gallery Container (Google Play Store Style) */}
+        <div className="flex overflow-x-auto gap-3.5 pb-3 pt-1 snap-x snap-mandatory touch-pan-x -mx-1 px-1 no-scrollbar">
           {images.map((img, index) => (
-            <div
+            <PreviewImageCard
               key={index}
-              onClick={() => setActiveImage(img)}
-              className="group relative h-48 rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden cursor-pointer hover:border-indigo-500/50 transition-all shadow-md"
-            >
-              <img
-                src={img}
-                alt={`Preview ${index + 1}`}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80";
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                <span className="text-xs text-white font-mono font-semibold flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Xem ảnh lớn
-                </span>
-              </div>
-            </div>
+              src={img}
+              index={index}
+              total={images.length}
+              onOpen={(idx) => setActiveImageIndex(idx)}
+            />
           ))}
         </div>
       </div>
@@ -138,19 +195,97 @@ export const CloudPhoneProTab: React.FC<CloudPhoneProTabProps> = ({ settings }) 
         </div>
       </div>
 
-      {/* Fullscreen Image Lightbox Modal */}
-      {activeImage && (
+      {/* Fullscreen Image Lightbox Modal with Carousel Navigation */}
+      {activeImageIndex !== null && (
         <div
-          onClick={() => setActiveImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md cursor-pointer"
+          onClick={() => setActiveImageIndex(null)}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-between p-4 sm:p-6 bg-slate-950/95 backdrop-blur-xl animate-fade-in"
         >
-          <img
-            src={activeImage}
-            alt="Enlarged preview"
-            className="max-w-full max-h-[85vh] rounded-2xl border border-indigo-500/40 shadow-2xl"
-          />
+          {/* Lightbox Header */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl flex items-center justify-between text-white border-b border-slate-800/80 pb-3"
+          >
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-indigo-400" />
+              <span className="text-sm font-bold font-mono">
+                HÌNH ẢNH XEM TRƯỚC ({activeImageIndex + 1} / {images.length})
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveImageIndex(null)}
+              className="p-2 rounded-xl bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Lightbox Image Container */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative flex-1 flex items-center justify-center my-4 max-w-5xl w-full"
+          >
+            {/* Previous Button */}
+            {images.length > 1 && (
+              <button
+                onClick={() =>
+                  setActiveImageIndex((prev) =>
+                    prev === null ? 0 : (prev - 1 + images.length) % images.length
+                  )
+                }
+                className="absolute left-2 sm:left-4 z-10 p-3 rounded-full bg-slate-900/80 hover:bg-indigo-600 text-white border border-slate-700/60 shadow-xl transition-all cursor-pointer"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            <img
+              src={images[activeImageIndex]}
+              alt={`Full preview ${activeImageIndex + 1}`}
+              className="max-w-full max-h-[75vh] object-contain rounded-2xl border border-indigo-500/30 shadow-2xl"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80";
+              }}
+            />
+
+            {/* Next Button */}
+            {images.length > 1 && (
+              <button
+                onClick={() =>
+                  setActiveImageIndex((prev) =>
+                    prev === null ? 0 : (prev + 1) % images.length
+                  )
+                }
+                className="absolute right-2 sm:right-4 z-10 p-3 rounded-full bg-slate-900/80 hover:bg-indigo-600 text-white border border-slate-700/60 shadow-xl transition-all cursor-pointer"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          {/* Lightbox Footer Thumbnails */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-2 overflow-x-auto max-w-full pb-1"
+          >
+            {images.map((img, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveImageIndex(idx)}
+                className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                  activeImageIndex === idx
+                    ? 'border-indigo-400 scale-110 shadow-lg shadow-indigo-500/30'
+                    : 'border-slate-800 opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img src={img} alt="thumb" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 };
+
