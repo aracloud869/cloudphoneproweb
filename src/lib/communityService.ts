@@ -253,6 +253,20 @@ export function subscribeUserProfile(uid: string, callback: (profile: UserProfil
   });
 }
 
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  if (!uid) return null;
+  try {
+    const docRef = userDoc(userDb, 'users', uid);
+    const snap = await userGetDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as UserProfile;
+    }
+  } catch (err) {
+    console.warn("Failed to get user profile:", err);
+  }
+  return null;
+}
+
 export async function saveUserProfile(profile: UserProfile) {
   const docRef = userDoc(userDb, 'users', profile.uid);
   return await userSetDoc(docRef, profile, { merge: true });
@@ -359,4 +373,3 @@ export async function updateAuthorProfileInScripts(authorUid: string, newName: s
     console.warn("Failed to update author profile in scripts:", err);
   }
 }
-
