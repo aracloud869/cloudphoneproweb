@@ -1,16 +1,8 @@
-import React, { useState } from 'react';
-import { BookOpen, Video, ExternalLink, Play, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, Search, ExternalLink, Play, FileText, Globe } from 'lucide-react';
+import { subscribeGuides, Guide } from '../lib/communityService';
 
-interface GuideItem {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  videoUrl?: string;
-  externalLink?: string;
-}
-
-// Hàm xử lý và chuẩn hóa URL video cho iframe
+// Hàm chuyển đổi URL đa dạng nền tảng sang dạng nhúng (Embed) chuẩn
 const getEmbedUrl = (url?: string): string => {
   if (!url) return '';
 
@@ -32,7 +24,7 @@ const getEmbedUrl = (url?: string): string => {
       return `https://streamable.com/e${pathname}`;
     }
 
-    // 3. Xử lý YouTube (chuẩn hóa watch?v=, short link youtu.be, youtube shorts, embed)
+    // 3. Xử lý YouTube (watch?v=, short link youtu.be, shorts, embed)
     if (parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be')) {
       let videoId = '';
       if (parsedUrl.hostname.includes('youtu.be')) {
@@ -53,7 +45,6 @@ const getEmbedUrl = (url?: string): string => {
       return videoId ? `https://player.vimeo.com/video/${videoId}` : url;
     }
 
-    // Mặc định trả về URL gốc nếu không rơi vào các trường hợp trên
     return url;
   } catch (e) {
     return url;
@@ -61,45 +52,27 @@ const getEmbedUrl = (url?: string): string => {
 };
 
 export const GuidesTab: React.FC = () => {
+  const [guides, setGuides] = useState<Guide[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Danh sách hướng dẫn mẫu (Bạn có thể thêm bớt tùy ý)
-  const guides: GuideItem[] = [
-    {
-      id: '1',
-      title: 'Hướng Dẫn Dùng Streamable Video',
-      description: 'Cách xem video hướng dẫn được lưu trữ trên Streamable.',
-      category: 'basic',
-      videoUrl: 'https://streamable.com/e/example', // Hỗ trợ cả link thường lẫn link /e/
-    },
-    {
-      id: '2',
-      title: 'Hướng Dẫn Sử Dụng Cloud Phone',
-      description: 'Cách cài đặt và vận hành Cloud Phone Pro hiệu quả nhất.',
-      category: 'basic',
-      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    }
-  ];
+  useEffect(() => {
+    const unsubscribe = subscribeGuides((updatedGuides) => {
+      setGuides(updatedGuides);
+      setLoading(false);
+    });
 
-  const categories = [
-    { id: 'all', name: 'Tất cả' },
-    { id: 'basic', name: 'Căn bản' },
-    { id: 'advanced', name: 'Nâng cao' },
-  ];
+    return () => unsubscribe();
+  }, []);
 
-  const filteredGuides = guides.filter((guide) => {
-    const matchesSearch =
-      guide.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      guide.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'all' || guide.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredGuides = guides.filter(guide => 
+    guide.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (guide.note && guide.note.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 backdrop-blur-sm">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -107,16 +80,16 @@ export const GuidesTab: React.FC = () => {
             Center Hướng Dẫn
           </h2>
           <p className="text-slate-400 mt-1">
-            Xem các video hướng dẫn và tài liệu sử dụng hệ thống
+            Tổng hợp các bài hướng dẫn chi tiết và video minh họa
           </p>
         </div>
 
-        {/* Search Bar */}
+        {/* Search */}
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm hướng dẫn..."
+            placeholder="Tìm bài hướng dẫn..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-900/80 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -124,75 +97,67 @@ export const GuidesTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-              selectedCategory === cat.id
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Guides List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredGuides.map((guide) => (
-          <div
-            key={guide.id}
-            className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden hover:border-slate-600 transition-all flex flex-col"
-          >
-            {/* Embedded Video/Iframe Container */}
-            {guide.videoUrl && (
-              <div className="relative w-full pt-[56.25%] bg-slate-950">
-                <iframe
-                  src={getEmbedUrl(guide.videoUrl)}
-                  title={guide.title}
-                  className="absolute top-0 left-0 w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </div>
-            )}
-
-            <div className="p-5 flex-1 flex flex-col justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-                  <Play className="w-4 h-4 text-indigo-400 fill-indigo-400" />
-                  {guide.title}
-                </h3>
-                <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                  {guide.description}
-                </p>
-              </div>
-
-              {guide.externalLink && (
-                <a
-                  href={guide.externalLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
-                >
-                  Xem thêm tài liệu chi tiết
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+      {/* Content Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+        </div>
+      ) : filteredGuides.length === 0 ? (
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-12 text-center text-slate-400">
+          Chưa có bài hướng dẫn nào được thêm.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredGuides.map((guide) => (
+            <div 
+              key={guide.id}
+              className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden hover:border-slate-600 transition-all flex flex-col"
+            >
+              {/* Embed Video iframe (Streamable / Youtube / Vimeo / Custom) */}
+              {guide.videoUrl && (
+                <div className="relative w-full pt-[56.25%] bg-slate-950">
+                  <iframe
+                    src={getEmbedUrl(guide.videoUrl)}
+                    title={guide.title}
+                    className="absolute top-0 left-0 w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
               )}
-            </div>
-          </div>
-        ))}
 
-        {filteredGuides.length === 0 && (
-          <div className="col-span-full py-12 text-center text-slate-500">
-            Không tìm thấy bài hướng dẫn nào phù hợp.
-          </div>
-        )}
-      </div>
+              <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                    <Play className="w-4 h-4 text-indigo-400 fill-indigo-400" />
+                    {guide.title}
+                  </h3>
+
+                  {guide.note && (
+                    <div className="flex items-start gap-2 text-sm text-slate-300 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                      <FileText className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                      <p className="whitespace-pre-wrap">{guide.note}</p>
+                    </div>
+                  )}
+                </div>
+
+                {guide.embedUrl && (
+                  <a
+                    href={guide.embedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors pt-2 border-t border-slate-700/30"
+                  >
+                    <Globe className="w-4 h-4" />
+                    Mở liên kết đính kèm
+                    <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
