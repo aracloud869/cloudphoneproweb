@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScriptItem, CommunityScript, ScriptComment } from '../types';
+import { ScriptItem, CommunityScript, ScriptComment, UserProfile } from '../types';
 import { User } from '../lib/userFirebase';
 import { 
   subscribeCommunityScripts, 
@@ -10,7 +10,8 @@ import {
   subscribeScriptComments,
   addScriptComment,
   toggleLikeComment,
-  buffCommunityScriptLikes
+  buffCommunityScriptLikes,
+  getUserProfile
 } from '../lib/communityService';
 import { 
   Search, 
@@ -32,7 +33,11 @@ import {
   LogIn, 
   Heart,
   CornerDownRight,
-  ShieldCheck
+  ShieldCheck,
+  User as UserIcon,
+  Mail,
+  FileCode,
+  Award
 } from 'lucide-react';
 
 interface ScriptsTabProps {
@@ -80,6 +85,34 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
   const [adminBuffScript, setAdminBuffScript] = useState<CommunityScript | null>(null);
   const [buffLikeInput, setBuffLikeInput] = useState<number>(100);
   const [buffSuccessMsg, setBuffSuccessMsg] = useState<string | null>(null);
+
+  // User Profile Modal State
+  const [viewingUserProfile, setViewingUserProfile] = useState<{
+    uid: string;
+    name: string;
+    avatar: string;
+  } | null>(null);
+  const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const handleOpenUserProfile = async (authorUid: string, authorName: string, authorAvatar: string) => {
+    if (!authorUid) return;
+    setViewingUserProfile({
+      uid: authorUid,
+      name: authorName || 'Thành viên',
+      avatar: authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${authorUid}`
+    });
+    setLoadingProfile(true);
+    setUserProfileData(null);
+    try {
+      const profile = await getUserProfile(authorUid);
+      setUserProfileData(profile);
+    } catch (e) {
+      console.warn("Lỗi khi tải thông tin hồ sơ:", e);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   // Subscribe Community Scripts
   useEffect(() => {
@@ -455,19 +488,26 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
                       {/* Author Header Bar */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 bg-slate-950 border-b border-slate-800/80">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={item.authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${item.authorUid}`}
-                            alt={item.authorName}
-                            className="w-9 h-9 rounded-xl object-cover bg-slate-900 border border-slate-800"
-                          />
-                          <div>
-                            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                              {item.title}
-                            </h3>
-                            <p className="text-[11px] text-slate-400">
-                              Đăng bởi: <strong className="text-purple-300 font-mono">{item.authorName}</strong>
-                            </p>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenUserProfile(item.authorUid, item.authorName, item.authorAvatar)}
+                            className="flex items-center gap-3 text-left group/author hover:opacity-90 transition-opacity cursor-pointer"
+                            title={`Xem hồ sơ của ${item.authorName}`}
+                          >
+                            <img
+                              src={item.authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${item.authorUid}`}
+                              alt={item.authorName}
+                              className="w-9 h-9 rounded-xl object-cover bg-slate-900 border border-slate-800 group-hover/author:border-purple-400/80 transition-colors"
+                            />
+                            <div>
+                              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                                {item.title}
+                              </h3>
+                              <p className="text-[11px] text-slate-400">
+                                Đăng bởi: <strong className="text-purple-300 font-mono group-hover/author:underline group-hover/author:text-purple-200">{item.authorName}</strong>
+                              </p>
+                            </div>
+                          </button>
                         </div>
 
                         {/* Copy Script Button */}
@@ -679,14 +719,19 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
                 commentsList.map((c) => (
                   <div key={c.id} className="p-3 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenUserProfile(c.authorUid, c.authorName, c.authorAvatar)}
+                        className="flex items-center gap-2 hover:opacity-80 transition-opacity text-left cursor-pointer"
+                        title={`Xem hồ sơ của ${c.authorName}`}
+                      >
                         <img
                           src={c.authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${c.authorUid}`}
                           alt={c.authorName}
-                          className="w-6 h-6 rounded-lg object-cover bg-slate-900"
+                          className="w-6 h-6 rounded-lg object-cover bg-slate-900 border border-slate-800/50"
                         />
-                        <span className="text-xs font-bold text-purple-300">{c.authorName}</span>
-                      </div>
+                        <span className="text-xs font-bold text-purple-300 hover:underline">{c.authorName}</span>
+                      </button>
                       <span className="text-[10px] text-slate-500 font-mono">
                         {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -917,6 +962,168 @@ export const ScriptsTab: React.FC<ScriptsTabProps> = ({
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== USER PROFILE MODAL ==================== */}
+      {viewingUserProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-slate-900 border border-purple-500/40 max-w-2xl w-full max-h-[90vh] rounded-3xl p-6 shadow-2xl space-y-5 overflow-y-auto scrollbar-thin">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5 text-purple-400">
+                <UserIcon className="w-5 h-5" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">HỒ SƠ TÁC GIẢ</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setViewingUserProfile(null);
+                  setUserProfileData(null);
+                }}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Profile Info Header Card */}
+            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800/80 flex flex-col sm:flex-row items-center sm:items-start gap-4 shadow-inner">
+              <img
+                src={userProfileData?.avatarUrl || viewingUserProfile.avatar}
+                alt={userProfileData?.displayName || viewingUserProfile.name}
+                className="w-16 h-16 rounded-2xl object-cover bg-slate-900 border-2 border-purple-500/40 shadow-lg"
+              />
+
+              <div className="flex-1 text-center sm:text-left space-y-2">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center justify-center sm:justify-start gap-2">
+                    {userProfileData?.displayName || viewingUserProfile.name}
+                  </h2>
+                  <p className="text-xs text-purple-300/90 font-mono flex items-center justify-center sm:justify-start gap-1.5 mt-0.5">
+                    <Mail className="w-3.5 h-3.5 text-purple-400" />
+                    <span>{userProfileData?.email ? userProfileData.email : 'Email chưa cập nhật hoặc ẩn'}</span>
+                  </p>
+                </div>
+
+                {/* Stats row */}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-1">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs font-bold text-purple-300">
+                    <FileCode className="w-3.5 h-3.5" />
+                    <span>
+                      {communityScripts.filter(s => s.authorUid === viewingUserProfile.uid).length} Script đã đăng
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-300">
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    <span>
+                      {communityScripts
+                        .filter(s => s.authorUid === viewingUserProfile.uid)
+                        .reduce((sum, s) => sum + (s.likes || 0), 0)} Lượt thích
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Author's Posted Scripts List */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-purple-400" />
+                Danh Sách Script Của Tác Giả ({communityScripts.filter(s => s.authorUid === viewingUserProfile.uid).length})
+              </h4>
+
+              {(() => {
+                const authorScripts = communityScripts.filter(s => s.authorUid === viewingUserProfile.uid);
+
+                if (authorScripts.length === 0) {
+                  return (
+                    <div className="p-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800 text-slate-400 text-xs">
+                      Tác giả chưa đăng script nào trên cộng đồng.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
+                    {authorScripts.map((item) => {
+                      const isLiked = currentUser && Array.isArray(item.likedBy) && item.likedBy.includes(currentUser.uid);
+                      const isDisliked = currentUser && Array.isArray(item.dislikedBy) && item.dislikedBy.includes(currentUser.uid);
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <h5 className="text-sm font-bold text-white">{item.title}</h5>
+                            <button
+                              onClick={() => handleCopy(item.code, item.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                copiedId === item.id
+                                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                                  : 'bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30'
+                              }`}
+                            >
+                              {copiedId === item.id ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" /> Đã chép
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" /> Sao chép Script
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          {item.description && (
+                            <p className="text-xs text-slate-300 leading-relaxed">{item.description}</p>
+                          )}
+
+                          <div className="p-3 bg-slate-900/90 rounded-xl font-mono text-xs text-cyan-300 max-h-28 overflow-x-auto scrollbar-thin">
+                            <pre className="whitespace-pre-wrap break-all">{item.code}</pre>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleLike(item)}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                                  isLiked
+                                    ? 'bg-emerald-500 text-slate-950'
+                                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                                }`}
+                              >
+                                <ThumbsUp className="w-3 h-3" />
+                                <span>{item.likes}</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleDislike(item.id)}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                                  isDisliked
+                                    ? 'bg-rose-500 text-white'
+                                    : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                                }`}
+                              >
+                                <ThumbsDown className="w-3 h-3" />
+                                <span>{item.dislikes}</span>
+                              </button>
+                            </div>
+
+                            <span className="text-[10px] font-mono text-slate-500">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
