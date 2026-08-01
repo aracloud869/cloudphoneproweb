@@ -40,11 +40,79 @@ import { BannedOverlay } from './components/BannedOverlay';
 import { ShieldCheck, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const TAB_ROUTES: Record<TabType, string> = {
+  home: '/',
+  hack_roblox: '/hack-roblox',
+  scripts: '/scripts',
+  setup_cloud: '/setup-cloud',
+  server_cloud_pro: '/server-cloud-pro',
+  get_key: '/get-key',
+  cloud_phone_pro: '/cloud-phone-pro',
+  guides: '/guides',
+  notes: '/notes',
+  account: '/account',
+  admin: '/admin',
+};
+
+const getTabFromPath = (pathname: string): TabType => {
+  const cleanPath = pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+
+  if (cleanPath === '0869125253') {
+    return 'admin';
+  }
+
+  switch (cleanPath) {
+    case 'hack-roblox':
+    case 'hack_roblox':
+      return 'hack_roblox';
+    case 'scripts':
+      return 'scripts';
+    case 'setup-cloud':
+    case 'setup_cloud':
+      return 'setup_cloud';
+    case 'server-cloud-pro':
+    case 'server_cloud_pro':
+      return 'server_cloud_pro';
+    case 'get-key':
+    case 'get_key':
+      return 'get_key';
+    case 'cloud-phone-pro':
+    case 'cloud_phone_pro':
+      return 'cloud_phone_pro';
+    case 'guides':
+      return 'guides';
+    case 'notes':
+      return 'notes';
+    case 'account':
+      return 'account';
+    case 'admin':
+      return 'admin';
+    default:
+      return 'home';
+  }
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return localStorage.getItem('is_admin_mode') === 'true';
   });
+
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    return getTabFromPath(window.location.pathname);
+  });
+
+  // Tab switch handler with URL synchronization
+  const handleTabChange = (tab: TabType, replace: boolean = false) => {
+    setActiveTab(tab);
+    const targetPath = TAB_ROUTES[tab] || '/';
+    if (window.location.pathname !== targetPath) {
+      if (replace) {
+        window.history.replaceState({}, document.title, targetPath);
+      } else {
+        window.history.pushState({}, document.title, targetPath);
+      }
+    }
+  };
 
   // User Authentication & Profile States (Second Firebase)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -124,18 +192,21 @@ export default function App() {
     };
   }, []);
 
-  // 2. Handle Admin URL Route Check
+  // 2. Handle URL Route Check & Browser Back/Forward navigation
   useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname.replace(/^\/+/, '').trim();
       
-      // Admin Route Check (/0869125253)
+      // Admin Secret URL Route Check (/0869125253)
       if (path === '0869125253') {
         localStorage.setItem('is_admin_mode', 'true');
         setIsAdmin(true);
-        setActiveTab('admin');
-        window.history.replaceState({}, document.title, '/');
+        handleTabChange('admin', true);
+        return;
       }
+
+      const targetTab = getTabFromPath(window.location.pathname);
+      setActiveTab(targetTab);
     };
 
     checkRoute();
@@ -178,7 +249,7 @@ export default function App() {
   const handleUnlockAdmin = () => {
     localStorage.setItem('is_admin_mode', 'true');
     setIsAdmin(true);
-    setActiveTab('admin');
+    handleTabChange('admin');
   };
 
   return (
@@ -225,7 +296,7 @@ export default function App() {
       <div className="relative z-10">
         <Navbar 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+          setActiveTab={handleTabChange} 
           isAdmin={isAdmin} 
         />
       </div>
@@ -240,13 +311,13 @@ export default function App() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.2 }}
           >
-            {activeTab === 'home' && <HomeTab setActiveTab={setActiveTab} />}
+            {activeTab === 'home' && <HomeTab setActiveTab={handleTabChange} />}
             {activeTab === 'hack_roblox' && <HackRobloxTab hacks={hacks} />}
             {activeTab === 'scripts' && (
               <ScriptsTab 
                 scripts={scripts} 
                 currentUser={currentUser} 
-                onNavigateToAccount={() => setActiveTab('account')} 
+                onNavigateToAccount={() => handleTabChange('account')} 
               />
             )}
             {activeTab === 'setup_cloud' && <SetupCloudTab apps={setupApps} />}
@@ -267,10 +338,10 @@ export default function App() {
               <AccountTab 
                 currentUser={currentUser} 
                 userProfile={userProfile} 
-                onNavigateToScripts={() => setActiveTab('scripts')} 
+                onNavigateToScripts={() => handleTabChange('scripts')} 
               />
             )}
-            {activeTab === 'admin' && (
+            {activeTab === '0869125253' && (
               <AdminTab
                 hacks={hacks}
                 scripts={scripts}
