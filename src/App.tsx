@@ -51,7 +51,7 @@ const TAB_ROUTES: Record<TabType, string> = {
   guides: '/guides',
   notes: '/notes',
   account: '/account',
-  admin: '/admin',
+  admin: '/0869125253',
 };
 
 const getTabFromPath = (pathname: string): TabType => {
@@ -85,8 +85,6 @@ const getTabFromPath = (pathname: string): TabType => {
       return 'notes';
     case 'account':
       return 'account';
-    case 'admin':
-      return 'admin';
     default:
       return 'home';
   }
@@ -341,7 +339,7 @@ export default function App() {
                 onNavigateToScripts={() => handleTabChange('scripts')} 
               />
             )}
-            {activeTab === '0869125253' && (
+            {activeTab === 'admin' && (
               <AdminTab
                 hacks={hacks}
                 scripts={scripts}
